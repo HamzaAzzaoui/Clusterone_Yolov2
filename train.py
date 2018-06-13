@@ -5,21 +5,18 @@ import cv2
 
 SCALE = 32
 GRID_W, GRID_H = 18, 10
-N_CLASSES = 6
-N_ANCHORS = 4
+N_CLASSES = 43
+N_ANCHORS = 5
 IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_DEPTH = GRID_H*SCALE, GRID_W*SCALE, 3
-
+BATCH_SIZE = 24
 LAMBDA_COORD = 5.0
 LAMBDA_NO_OBJ = 0.5
-BATCH_SIZE = 24
 LEARNING_RATE = 0.0001
 NUM_ITERS = 100000
-TFRECORD_PATH = './data.tfrecord'
+TFRECORD_PATH = './data_test.tfrecord'
 MODEL_PATH, SAVE_INTERVAL = './model', 10000
 
-# ---------------------------------------------------------------------------------
-# -------------------------------- tfrecord reader --------------------------------
-# ---------------------------------------------------------------------------------
+
 
 def read_example(filename, batch_size):
 
@@ -38,6 +35,7 @@ def read_example(filename, batch_size):
 	image = image/255.0
 
 	label_raw = tf.decode_raw(parsed_example['label'], tf.float32)	
+	print("LABEL RAW SHAPE",tf.shape(label_raw))
 	label = tf.reshape(label_raw, [batch_size, GRID_H, GRID_W, N_ANCHORS, 6])
 
 	return image, label
@@ -114,10 +112,12 @@ def yolo_net(x, train_logical):
 	return y
 
 def slice_tensor(x, start, end=None):
-	
-	if end < 0:
-		y = x[...,start:]
-		
+	if end != None:
+	    if end < 0:
+		    y = x[...,start:]
+	    else:
+		    y = x[...,start:end + 1]
+
 	else:
 		if end is None:		
 			end = start
@@ -207,6 +207,9 @@ def train():
 		image_data,label_data = sess.run([batch_image, batch_label])
 
 		_, loss_data, data = sess.run([train_step, loss, y], feed_dict={train_flag: True, image: image_data, label: label_data})
+
+        
+		print("LossError" , loss_data)
 		if (i+1)%SAVE_INTERVAL == 0:
 			make_dir(MODEL_PATH)
 			saver.save(sess, os.path.join(MODEL_PATH, 'yolo'), global_step=i+1)
